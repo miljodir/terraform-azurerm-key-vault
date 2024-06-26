@@ -30,7 +30,7 @@ resource "azurerm_key_vault" "kv" {
 }
 
 resource "azurerm_private_endpoint" "kv_pe" {
-  count               = var.enable_private_endpoint == true ? 1 : 0
+  count               = var.enable_private_endpoint == true && var.subnet_id != null ? 1 : 0
   location            = azurerm_key_vault.kv.location
   name                = "${azurerm_key_vault.kv.name}-pe"
   resource_group_name = azurerm_key_vault.kv.resource_group_name
@@ -51,7 +51,7 @@ resource "azurerm_private_endpoint" "kv_pe" {
 }
 
 resource "azurerm_private_dns_a_record" "kv_dns" {
-  count               = var.enable_private_endpoint == true ? 1 : 0
+  count               = var.enable_private_endpoint == true && var.subnet_id != null ? 1 : 0
   name                = azurerm_key_vault.kv.name
   records             = [azurerm_private_endpoint.kv_pe[0].private_service_connection[0].private_ip_address]
   resource_group_name = var.dns_rg_name
