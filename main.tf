@@ -45,7 +45,8 @@ resource "azurerm_private_endpoint" "kv_pe" {
 
   lifecycle {
     ignore_changes = [
-      tags
+      tags,
+      private_dns_zone_group,
     ]
   }
 }
