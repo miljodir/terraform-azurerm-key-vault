@@ -33,7 +33,7 @@ variable "unique" {
 variable "subnet_id" {
   type        = string
   description = "The ID of the subnet where the Private Endpoint will be deployed"
-  default = null
+  default     = null
 }
 
 variable "sku_name" {
