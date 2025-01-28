@@ -33,7 +33,7 @@ variable "unique" {
 variable "subnet_id" {
   type        = string
   description = "The ID of the subnet where the Private Endpoint will be deployed"
-  default = null
+  default     = null
 }
 
 variable "sku_name" {
@@ -93,13 +93,14 @@ variable "enable_private_endpoint" {
 variable "network_acls" {
   description = "Network rules restricing access to the storage account."
   type = object({
-    default_action = optional(string)
-    bypass         = optional(string),
-    ip_rules       = optional(list(string)),
+    default_action = optional(string, "Deny"),
+    bypass         = optional(string, "None"),
+    ip_rules       = optional(list(string), []),
     subnet_ids     = optional(list(string))
   })
   default = {
     default_action = "Deny"
     bypass         = "None"
+    ip_rules       = []
   }
 }

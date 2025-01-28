@@ -1,7 +1,15 @@
 data "azurerm_client_config" "current" {}
 
 locals {
-  key_vault_name = var.key_vault_name != null ? var.key_vault_name : "${var.rg_name}${var.unique}-kv"
+  key_vault_name                = var.key_vault_name != null ? var.key_vault_name : "${var.rg_name}${var.unique}-kv"
+  public_network_access_enabled = local.allow_known_pips ? true : var.public_network_access_enabled ? true : false
+  allow_known_pips              = split("-", var.rg_name)[0] == "d" ? true : false
+}
+
+module "network_vars" {
+  # private module used for public IP whitelisting
+  count  = local.public_network_access_enabled == true ? 1 : 0
+  source = "git@github.com:miljodir/cp-shared.git//modules/public_nw_ips?ref=public_nw_ips/v1"
 }
 
 resource "azurerm_key_vault" "kv" {
@@ -16,16 +24,13 @@ resource "azurerm_key_vault" "kv" {
   enabled_for_deployment          = var.enabled_for_deployment
   enabled_for_disk_encryption     = var.enabled_for_disk_encryption
   enabled_for_template_deployment = var.enabled_for_template_deployment
-  public_network_access_enabled   = var.public_network_access_enabled
+  public_network_access_enabled   = local.public_network_access_enabled
 
-  dynamic "network_acls" {
-    for_each = var.network_acls != null ? ["true"] : []
-    content {
-      default_action             = var.network_acls.default_action != null ? var.network_acls.default_action : "Deny"
-      bypass                     = var.network_acls.bypass != null ? var.network_acls.bypass : "None"
-      ip_rules                   = var.network_acls.ip_rules != null ? var.network_acls.ip_rules : []
-      virtual_network_subnet_ids = var.network_acls.subnet_ids != null ? var.network_acls.subnet_ids : []
-    }
+  network_acls {
+    default_action             = var.network_acls.default_action != null ? var.network_acls.default_action : "Deny"
+    bypass                     = var.network_acls.bypass != null ? var.network_acls.bypass : "None"
+    ip_rules                   = local.allow_known_pips ? concat(values(module.network_vars[0].known_public_ips), var.network_acls.ip_rules) : var.network_acls.ip_rules
+    virtual_network_subnet_ids = var.network_acls.subnet_ids != null ? var.network_acls.subnet_ids : []
   }
 }
 
