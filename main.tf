@@ -64,5 +64,12 @@ resource "azurerm_private_dns_a_record" "kv_dns" {
   zone_name           = "privatelink.vaultcore.azure.net"
 
   provider = azurerm.p-dns
+
+  lifecycle {
+    ignore_changes = [
+      ttl,
+      tags,
+    ]
+  }
 }
 
