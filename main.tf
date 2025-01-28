@@ -23,12 +23,12 @@ resource "azurerm_key_vault" "kv" {
   enabled_for_deployment          = var.enabled_for_deployment
   enabled_for_disk_encryption     = var.enabled_for_disk_encryption
   enabled_for_template_deployment = var.enabled_for_template_deployment
-  public_network_access_enabled   = var.public_network_access_enabled
+  public_network_access_enabled   = local.public_network_access_enabled
 
   network_acls {
     default_action             = var.network_acls.default_action != null ? var.network_acls.default_action : "Deny"
     bypass                     = var.network_acls.bypass != null ? var.network_acls.bypass : "None"
-    ip_rules                   = try(concat(values(module.network_vars[0].known_public_ips), var.network_acls.ip_rules), [])
+    ip_rules                   = local.public_network_access_enabled ? try(concat(values(module.network_vars[0].known_public_ips), var.network_acls.ip_rules), (values(module.network_vars[0].known_public_ips))) : []
     virtual_network_subnet_ids = var.network_acls.subnet_ids != null ? var.network_acls.subnet_ids : []
   }
 }
