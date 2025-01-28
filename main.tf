@@ -2,7 +2,8 @@ data "azurerm_client_config" "current" {}
 
 locals {
   key_vault_name                = var.key_vault_name != null ? var.key_vault_name : "${var.rg_name}${var.unique}-kv"
-  public_network_access_enabled = split("-", var.rg_name)[0] == "d" ? true : var.public_network_access_enabled ? true : false
+  public_network_access_enabled = local.allow_known_pips ? true : var.public_network_access_enabled ? true : false
+  allow_known_pips              = split("-", var.rg_name)[0] == "d" ? true : false
 }
 
 module "network_vars" {
@@ -28,7 +29,7 @@ resource "azurerm_key_vault" "kv" {
   network_acls {
     default_action             = var.network_acls.default_action != null ? var.network_acls.default_action : "Deny"
     bypass                     = var.network_acls.bypass != null ? var.network_acls.bypass : "None"
-    ip_rules                   = local.public_network_access_enabled ? try(concat(values(module.network_vars[0].known_public_ips), var.network_acls.ip_rules), (values(module.network_vars[0].known_public_ips))) : []
+    ip_rules                   = local.allow_known_pips ? concat(values(module.network_vars[0].known_public_ips), var.network_acls.ip_rules) : var.network_acls.ip_rules
     virtual_network_subnet_ids = var.network_acls.subnet_ids != null ? var.network_acls.subnet_ids : []
   }
 }
