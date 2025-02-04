@@ -56,21 +56,9 @@ resource "azurerm_private_endpoint" "kv_pe" {
   }
 }
 
-resource "azurerm_private_dns_a_record" "kv_dns" {
-  count               = var.enable_private_endpoint == true && var.subnet_id != null ? 1 : 0
-  name                = azurerm_key_vault.kv.name
-  records             = [azurerm_private_endpoint.kv_pe[0].private_service_connection[0].private_ip_address]
-  resource_group_name = var.dns_rg_name
-  ttl                 = 600
-  zone_name           = "privatelink.vaultcore.azure.net"
-
-  provider = azurerm.p-dns
-
+removed {
+  from = azurerm_private_dns_a_record.kv_dns
   lifecycle {
-    ignore_changes = [
-      ttl,
-      tags,
-    ]
+    destroy = false
   }
 }
-
