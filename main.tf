@@ -18,7 +18,7 @@ resource "azurerm_key_vault" "kv" {
   resource_group_name             = var.rg_name
   sku_name                        = var.sku_name
   tenant_id                       = data.azurerm_client_config.current.tenant_id
-  enable_rbac_authorization       = var.enable_rbac_authorization
+  rbac_authorization_enabled      = var.enable_rbac_authorization
   purge_protection_enabled        = var.purge_protection_enabled #tfsec:ignore:azure-keyvault-no-purge
   soft_delete_retention_days      = var.soft_delete_retention_days
   enabled_for_deployment          = var.enabled_for_deployment
