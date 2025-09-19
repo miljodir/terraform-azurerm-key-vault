@@ -55,10 +55,3 @@ resource "azurerm_private_endpoint" "kv_pe" {
     ]
   }
 }
-
-removed {
-  from = azurerm_private_dns_a_record.kv_dns
-  lifecycle {
-    destroy = false
-  }
-}
