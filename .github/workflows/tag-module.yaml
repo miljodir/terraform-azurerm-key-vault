@@ -19,7 +19,7 @@ on:
 jobs:
   pr:
     if: github.event_name != 'repository_dispatch'
-    uses: miljodir/workflow-templates/.github/workflows/generate-release-metadata.yaml@generate-release-metadata/v1
+    uses: miljodir/workflow-templates/.github/workflows/generate-release-metadata.yaml@download #generate-release-metadata/v1
     permissions:
       contents: write
       pull-requests: write
