@@ -103,8 +103,8 @@ esac
 terraform test -test-directory=tests "-filter=$FILTER_PATH"
 ```
 
-For OpenTofu, replace `terraform` with `tofu` in the three CLI commands. To run
-all tests, omit `-filter=tests/key_vault.tftest.hcl`. The test command should
+For OpenTofu, replace `terraform` with `tofu` in the CLI commands. To run all
+tests, omit the `-filter` option and its quoted argument. The test command should
 report a nonzero passing-run count, e.g. `Success! 9 passed, 0 failed.`; a
 success message with zero runs means no test was exercised. The filter variable
 is quoted because Bash consumes unquoted backslashes on Windows.
@@ -125,27 +125,22 @@ terraform test -test-directory=tests '-filter=tests\key_vault.tftest.hcl'
 Pop-Location
 ```
 
-Replace `terraform` with `tofu` for OpenTofu. `git archive` copies tracked files
-into the temporary directory; the preparation script modifies only that copy,
-not the checkout.
+Replace `terraform` with `tofu` for OpenTofu. `git archive HEAD` copies the
+committed snapshot only; commit changes you want to test first, or copy your
+uncommitted changes into the temporary directory before running the tests. The
+preparation script modifies only the temporary copy, not the checkout.
 
 If you already have SSH access to the private module, you can instead initialize
-the working checkout directly and run the test suite:
+the working checkout directly and run all tests:
 
 ```sh
 terraform init -backend=false
 terraform test            # all tests
 terraform test -verbose   # include plan output
-terraform test -filter=tests/key_vault.tftest.hcl
 ```
 
-To run with OpenTofu, use `tofu init -backend=false` followed by `tofu test`
-(or `tofu test -verbose`). When filtering in Windows PowerShell, use backslashes:
-
-```powershell
-terraform test '-filter=tests\key_vault.tftest.hcl'
-tofu test '-filter=tests\key_vault.tftest.hcl'
-```
+For OpenTofu, replace `terraform` with `tofu`. To run only `key_vault.tftest.hcl`,
+use the shell-aware `FILTER_PATH` example above, or the quoted PowerShell example.
 
 Running `init` directly against this module downloads its real private
 dependency and therefore requires SSH access to GitHub. CI avoids that by
