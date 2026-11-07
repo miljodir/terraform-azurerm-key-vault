@@ -16,7 +16,8 @@ Terraform and OpenTofu for pull requests to any target branch and pushes to
 CI uses the shared reusable workflow
 [`terraform-test.yaml@terraform-test/v0`](https://github.com/miljodir/workflow-templates/blob/terraform-test/v0/.github/workflows/terraform-test.yaml).
 It checks the same test suite with both tools and requires at least one test run
-to pass for each engine.
+to pass for each engine. A command that exits successfully but reports zero
+tests is not evidence that the suite passed.
 
 ## How the tests work
 
@@ -38,19 +39,6 @@ to pass for each engine.
   IPs. The script runs guard tests before making the substitution. CI therefore
   needs no SSH key or private-module access. These tests cover this module's
   behavior with the fixture; they do not test the private dependency itself.
-
-- When tests run, the module is the *root* module. Terraform then rejects
-  outputs that contain sensitive attributes unless they are marked
-  `sensitive = true` (consumers calling the module are not affected). Put
-  test-only override files in `tests/overrides/` named `*_override.tf`, e.g.
-
-  ```hcl
-  output "storage_account" {
-    sensitive = true
-  }
-  ```
-
-  CI copies them into the module root right before `terraform test`.
 
 These are unit-style tests: they verify how the module turns inputs into
 resource configuration. They do not prove that Azure accepts the configuration;
@@ -95,18 +83,71 @@ Guidelines:
 
 ## Running locally
 
-Requires Terraform >= 1.7.
+Requires Terraform >= 1.7 or a compatible OpenTofu release. Tests use mock
+providers and fake inputs, so no Azure credentials are needed.
+
+To run without private SSH access, use a temporary copy. The preparation script
+rewrites `main.tf`, so never run it in your working checkout:
+
+```sh
+tmpdir="$(mktemp -d)"
+git archive HEAD | tar -x -C "$tmpdir"
+cd "$tmpdir"
+bash tests/prepare-ci.sh
+terraform init -backend=false -input=false -test-directory=tests
+terraform validate
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*) FILTER_PATH='tests\key_vault.tftest.hcl' ;;
+  *) FILTER_PATH='tests/key_vault.tftest.hcl' ;;
+esac
+terraform test -test-directory=tests "-filter=$FILTER_PATH"
+```
+
+For OpenTofu, replace `terraform` with `tofu` in the three CLI commands. To run
+all tests, omit `-filter=tests/key_vault.tftest.hcl`. The test command should
+report a nonzero passing-run count, e.g. `Success! 9 passed, 0 failed.`; a
+success message with zero runs means no test was exercised. The filter variable
+is quoted because Bash consumes unquoted backslashes on Windows.
+
+On Windows, run the same steps in PowerShell, replacing `$engine` with
+`terraform` or `tofu`. The filter path uses backslashes:
+
+```powershell
+$testCopy = Join-Path $env:TEMP ("terraform-module-test-" + [guid]::NewGuid().ToString("N"))
+New-Item -ItemType Directory -Force $testCopy | Out-Null
+git archive --format=tar --output "$testCopy.tar" HEAD
+tar -xf "$testCopy.tar" -C $testCopy
+Push-Location $testCopy
+bash tests/prepare-ci.sh
+terraform init -backend=false -input=false -test-directory=tests
+terraform validate
+terraform test -test-directory=tests '-filter=tests\key_vault.tftest.hcl'
+Pop-Location
+```
+
+Replace `terraform` with `tofu` for OpenTofu. `git archive` copies tracked files
+into the temporary directory; the preparation script modifies only that copy,
+not the checkout.
+
+If you already have SSH access to the private module, you can instead initialize
+the working checkout directly and run the test suite:
 
 ```sh
 terraform init -backend=false
 terraform test            # all tests
 terraform test -verbose   # include plan output
-terraform test -filter=tests/defaults.tftest.hcl
+terraform test -filter=tests/key_vault.tftest.hcl
 ```
 
-Remove the copied `*_override.tf` files afterwards (they are git-ignored).
+To run with OpenTofu, use `tofu init -backend=false` followed by `tofu test`
+(or `tofu test -verbose`). When filtering in Windows PowerShell, use backslashes:
 
-Running `terraform init` directly against this module downloads its real private
-dependency and therefore requires SSH access to GitHub. Do not run
-`tests/prepare-ci.sh` against your working checkout: the script is intended for
-the CI workflow's disposable copy.
+```powershell
+terraform test '-filter=tests\key_vault.tftest.hcl'
+tofu test '-filter=tests\key_vault.tftest.hcl'
+```
+
+Running `init` directly against this module downloads its real private
+dependency and therefore requires SSH access to GitHub. CI avoids that by
+running `tests/prepare-ci.sh` in a disposable copy; that fixture tests this
+module's logic, not the private dependency itself.
