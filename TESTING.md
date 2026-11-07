@@ -93,39 +93,63 @@ To run without private SSH access, use a temporary copy. The preparation script
 rewrites `main.tf`, so never run it in your working checkout:
 
 ```sh
-tmpdir="$(mktemp -d)"
-git archive HEAD | tar -x -C "$tmpdir"
-cd "$tmpdir"
-bash tests/prepare-ci.sh
-terraform init -backend=false -input=false -test-directory=tests
-terraform validate
-case "$(uname -s)" in
-  MINGW*|MSYS*|CYGWIN*) FILTER_PATH='tests\key_vault.tftest.hcl' ;;
-  *) FILTER_PATH='tests/key_vault.tftest.hcl' ;;
-esac
-terraform test -test-directory=tests "-filter=$FILTER_PATH"
+(
+  set -euo pipefail
+  tmpdir="$(mktemp -d)"
+  trap 'rm -rf "$tmpdir"' EXIT
+  git archive HEAD | tar -x -C "$tmpdir"
+  cd "$tmpdir"
+  bash tests/prepare-ci.sh
+  terraform init -backend=false -input=false -test-directory=tests
+  terraform validate
+  case "$(uname -s)" in
+    MINGW*|MSYS*|CYGWIN*) FILTER_PATH='tests\key_vault.tftest.hcl' ;;
+    *) FILTER_PATH='tests/key_vault.tftest.hcl' ;;
+  esac
+  terraform test -test-directory=tests "-filter=$FILTER_PATH"
+)
 ```
 
-For OpenTofu, replace `terraform` with `tofu` in the CLI commands. To run all
-tests, omit the `-filter` option and its quoted argument. The test command should
-report a nonzero passing-run count, e.g. `Success! 9 passed, 0 failed.`; a
-success message with zero runs means no test was exercised. The filter variable
-is quoted because Bash consumes unquoted backslashes on Windows.
+For OpenTofu, replace `terraform` with `tofu` in the command. To run all tests,
+remove the `-filter` option from the final command; do not pass an empty or
+stale filter path. The test command should report a nonzero passing-run count,
+e.g. `Success! 9 passed, 0 failed.`; a success message with zero runs means no
+test was exercised. The filter variable is quoted because Bash consumes
+unquoted backslashes on Windows.
 
-On Windows, run the same steps in PowerShell, replacing `$engine` with
-`terraform` or `tofu`. The filter path uses backslashes:
+On Windows PowerShell, use a temporary copy and check each command's exit code.
+The `finally` block restores the original directory even if a command fails.
+Use `terraform` below, or substitute `tofu`:
 
 ```powershell
+$ErrorActionPreference = 'Stop'
 $testCopy = Join-Path $env:TEMP ("terraform-module-test-" + [guid]::NewGuid().ToString("N"))
-New-Item -ItemType Directory -Force $testCopy | Out-Null
-git archive --format=tar --output "$testCopy.tar" HEAD
-tar -xf "$testCopy.tar" -C $testCopy
-Push-Location $testCopy
-bash tests/prepare-ci.sh
-terraform init -backend=false -input=false -test-directory=tests
-terraform validate
-terraform test -test-directory=tests '-filter=tests\key_vault.tftest.hcl'
-Pop-Location
+$archive = "$testCopy.tar"
+try {
+    New-Item -ItemType Directory -Force $testCopy | Out-Null
+    git archive --format=tar --output $archive HEAD
+    if ($LASTEXITCODE -ne 0) { throw 'git archive failed' }
+    tar -xf $archive -C $testCopy
+    if ($LASTEXITCODE -ne 0) { throw 'tar extraction failed' }
+    Push-Location $testCopy
+    try {
+        bash tests/prepare-ci.sh
+        if ($LASTEXITCODE -ne 0) { throw 'fixture preparation failed' }
+        terraform init -backend=false -input=false -test-directory=tests
+        if ($LASTEXITCODE -ne 0) { throw 'terraform init failed' }
+        terraform validate
+        if ($LASTEXITCODE -ne 0) { throw 'terraform validate failed' }
+        terraform test -test-directory=tests '-filter=tests\key_vault.tftest.hcl'
+        if ($LASTEXITCODE -ne 0) { throw 'terraform test failed' }
+    }
+    finally {
+        Pop-Location
+    }
+}
+finally {
+    Remove-Item -LiteralPath $archive -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $testCopy -Recurse -Force -ErrorAction SilentlyContinue
+}
 ```
 
 Replace `terraform` with `tofu` for OpenTofu. `git archive HEAD` copies the
