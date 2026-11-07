@@ -1,0 +1,25 @@
+name: Terraform tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths:
+      - "**.tf"
+      - "**.tftest.hcl"
+      - "tests/**"
+      - "scripts/**"
+      - ".github/workflows/terraform-test.yaml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    uses: miljodir/workflow-templates/.github/workflows/terraform-test.yaml@terraform-test/v0
+    with:
+      engine: both
+      opentofu-version: "1.x"
+      test-directory: tests
+      prepare-script: tests/prepare-ci.sh
