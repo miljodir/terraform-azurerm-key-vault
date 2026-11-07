@@ -2,12 +2,6 @@ name: Terraform tests
 
 on:
   pull_request:
-    paths:
-      - "**.tf"
-      - "**.tftest.hcl"
-      - "tests/**"
-      - "scripts/**"
-      - ".github/workflows/terraform-test.yaml"
   push:
     branches: [main]
     paths:
