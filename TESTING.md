@@ -16,8 +16,11 @@ Terraform and OpenTofu for pull requests to any target branch and pushes to
 CI uses the shared reusable workflow
 [`terraform-test.yaml@terraform-test/v0`](https://github.com/miljodir/workflow-templates/blob/terraform-test/v0/.github/workflows/terraform-test.yaml).
 It checks the same test suite with both tools and requires at least one test run
-to pass for each engine. A command that exits successfully but reports zero
-tests is not evidence that the suite passed.
+to pass for each engine. CI requests OpenTofu `1.x`, a floating SemVer range
+that selects the latest stable 1.x release when the workflow runs; it is not a
+fixed version pin. OpenTofu 1.13.9 was verified locally for this change. A
+command that exits successfully but reports zero tests is not evidence that the
+suite passed.
 
 ## How the tests work
 
