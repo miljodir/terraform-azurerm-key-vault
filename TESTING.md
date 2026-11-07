@@ -119,36 +119,44 @@ unquoted backslashes on Windows.
 
 On Windows PowerShell, use a temporary copy and check each command's exit code.
 The `finally` block restores the original directory even if a command fails.
-Use `terraform` below, or substitute `tofu`:
+The example runs in a script block, so it leaves the caller's location and
+`$ErrorActionPreference` unchanged. Use `terraform` below, or substitute `tofu`:
 
 ```powershell
-$ErrorActionPreference = 'Stop'
-$testCopy = Join-Path $env:TEMP ("terraform-module-test-" + [guid]::NewGuid().ToString("N"))
-$archive = "$testCopy.tar"
-try {
-    New-Item -ItemType Directory -Force $testCopy | Out-Null
-    git archive --format=tar --output $archive HEAD
-    if ($LASTEXITCODE -ne 0) { throw 'git archive failed' }
-    tar -xf $archive -C $testCopy
-    if ($LASTEXITCODE -ne 0) { throw 'tar extraction failed' }
-    Push-Location $testCopy
+& {
+    $ErrorActionPreference = 'Stop'
+    $tempRoot = Join-Path $env:TEMP ("terraform-module-test-" + [guid]::NewGuid().ToString("N"))
+    $createdTempRoot = $false
     try {
-        bash tests/prepare-ci.sh
-        if ($LASTEXITCODE -ne 0) { throw 'fixture preparation failed' }
-        terraform init -backend=false -input=false -test-directory=tests
-        if ($LASTEXITCODE -ne 0) { throw 'terraform init failed' }
-        terraform validate
-        if ($LASTEXITCODE -ne 0) { throw 'terraform validate failed' }
-        terraform test -test-directory=tests '-filter=tests\key_vault.tftest.hcl'
-        if ($LASTEXITCODE -ne 0) { throw 'terraform test failed' }
+        New-Item -ItemType Directory -Path $tempRoot -ErrorAction Stop | Out-Null
+        $createdTempRoot = $true
+        $testCopy = Join-Path $tempRoot 'module'
+        $archive = Join-Path $tempRoot 'source.tar'
+        New-Item -ItemType Directory -Path $testCopy -ErrorAction Stop | Out-Null
+        git archive --format=tar --output $archive HEAD
+        if ($LASTEXITCODE -ne 0) { throw 'git archive failed' }
+        tar -xf $archive -C $testCopy
+        if ($LASTEXITCODE -ne 0) { throw 'tar extraction failed' }
+        Push-Location $testCopy
+        try {
+            bash tests/prepare-ci.sh
+            if ($LASTEXITCODE -ne 0) { throw 'fixture preparation failed' }
+            terraform init -backend=false -input=false -test-directory=tests
+            if ($LASTEXITCODE -ne 0) { throw 'terraform init failed' }
+            terraform validate
+            if ($LASTEXITCODE -ne 0) { throw 'terraform validate failed' }
+            terraform test -test-directory=tests '-filter=tests\key_vault.tftest.hcl'
+            if ($LASTEXITCODE -ne 0) { throw 'terraform test failed' }
+        }
+        finally {
+            Pop-Location
+        }
     }
     finally {
-        Pop-Location
+        if ($createdTempRoot) {
+            Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction Stop
+        }
     }
-}
-finally {
-    Remove-Item -LiteralPath $archive -Force -ErrorAction SilentlyContinue
-    Remove-Item -LiteralPath $testCopy -Recurse -Force -ErrorAction SilentlyContinue
 }
 ```
 
