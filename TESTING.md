@@ -47,6 +47,28 @@ These are unit-style tests: they verify how the module turns inputs into
 resource configuration. They do not prove that Azure accepts the configuration;
 that still happens when a consuming workload runs `terraform plan`/`apply`.
 
+## Release workflow events
+
+The tag workflow uses `pull_request` events targeting `main`, filtered to
+`**.tf` changes. Opened, synchronized, reopened, labeled and unlabeled events
+preview a release; a merged `closed` event generates release metadata and
+dispatches the release and wiki updates. An unmerged close skips metadata.
+There is no second merge trigger. The reusable metadata workflow requires
+exactly one release label and skips release dispatch when there are no
+releasable changes or the label is `no-release`.
+
+Release automation is limited to same-repository PRs. Public-fork
+`pull_request` tokens are read-only, so the metadata job explicitly skips
+fork PRs, including merged closes: neither preview comments nor automatic
+releases are supported for those PRs. Terraform tests still run for fork PRs.
+Changes requiring an automatic release must use a same-repository branch.
+
+The existing `create_release` and `update_wiki` repository dispatch handlers
+remain independent of PR events. Workflow-only changes do not match the tag
+workflow's Terraform path filter and therefore do not create module releases.
+Re-running a successful merged-event run can dispatch again; this migration
+does not add release idempotency or test dispatches against the live repository.
+
 ## Writing a test
 
 ```hcl
