@@ -57,11 +57,12 @@ There is no second merge trigger. The reusable metadata workflow requires
 exactly one release label and skips release dispatch when there are no
 releasable changes or the label is `no-release`.
 
-Release automation is limited to same-repository PRs. Public-fork
-`pull_request` tokens are read-only, so the metadata job explicitly skips
-fork PRs, including merged closes: neither preview comments nor automatic
-releases are supported for those PRs. Terraform tests still run for fork PRs.
-Changes requiring an automatic release must use a same-repository branch.
+Same-repository and fork PRs use the same event routing, including merged
+closes. Public-fork `pull_request` tokens are read-only, so preview comments
+or release dispatches may fail visibly when they require write permissions.
+Routing a fork event does not guarantee a successful preview or release.
+No elevated credentials or settings are introduced, and post-merge fork
+token permissions have not been verified by a live merged event.
 
 The existing `create_release` and `update_wiki` repository dispatch handlers
 remain independent of PR events. Workflow-only changes do not match the tag
